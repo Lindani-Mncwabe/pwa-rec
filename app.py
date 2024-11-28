@@ -8,9 +8,8 @@ from datadog import statsd, initialize, api
 from flasgger import Swagger
 import os
 from sklearn.preprocessing import StandardScaler
-import src.utils as utils
+#import src.utils as utils
 from google.cloud import bigquery
-import src.utils as utils
 from google.cloud import spanner
 from google.oauth2 import service_account
 import logging
