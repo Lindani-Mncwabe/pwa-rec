@@ -16,16 +16,6 @@ import logging
 from dotenv import load_dotenv
 load_dotenv()
 
-# Datadog setup
-options = {
-    'api_key': os.getenv('DATADOG_API_KEY'),
-    'app_key': os.getenv('DATADOG_APP_KEY')
-}
-initialize(**options)
-
-# Enable Datadog tracing
-patch_all()
-
 # Initialize Flask app with swagger
 app = Flask(__name__)
 swagger = Swagger(app)  
@@ -37,11 +27,6 @@ stream_handler.setFormatter(log_formatter)
 app.logger.addHandler(stream_handler)  
 app.logger.setLevel(logging.INFO)
 
-# Datadog configuration
-config.env = os.getenv('DD_ENVIRONMENT', 'dev')
-config.service = os.getenv('DD_SERVICE', 'pwa-geo-recommendations')
-statsd.constant_tags = [f"env:{config.env}"]
-
 # Spanner setup
 spanner_instance_id = os.getenv('SPANNER_INSTANCE_ID')
 spanner_database_id = os.getenv('SPANNER_DATA_BASE_ID')
@@ -52,35 +37,7 @@ spanner_client = spanner.Client(credentials=credentials)
 instance = spanner_client.instance(spanner_instance_id)
 database = instance.database(spanner_database_id)
 
-# Middleware for tracing
-@app.before_request
-def add_tracing():
-    span = tracer.trace("recommendations_pwa.request", service=config.service, resource=request.endpoint)
-    span.set_tag("http.method", request.method)
-    span.set_tag("http.url", request.url)
-    request.span = span
-    statsd.increment('recommendations_pwa.request', tags=[f"endpoint:{request.endpoint}", f"method:{request.method}"])
-
-@app.after_request
-def stop_trace(response):
-    span = getattr(request, 'span', None)
-    if span:
-        span.set_tag("http.status_code", response.status_code)
-        span.finish()
-    return response
-
-@app.teardown_request
-def teardown_trace(exception):
-    span = getattr(request, 'span', None)
-    if span:
-        if exception:
-            span.set_tag("error", str(exception))
-            span.set_tag("http.status_code", 500)
-            statsd.increment('recommendations_pwa.error', tags=[f"endpoint:{request.endpoint}"])
-        span.finish()
-
 @app.route('/pwa_recommendations_endpoint', methods=['POST'])
-@tracer.wrap(name='pwa_recommendations_endpoint', service=config.service)
 def pwa_recommendations_endpoint():
     """
     Geo Recommendations Endpoint
@@ -132,7 +89,6 @@ def pwa_recommendations_endpoint():
     """
     try:
         app.logger.info("Geo recommendations endpoint called")
-        statsd.increment("recommendations_pwa.request", tags=[f"method:{request.method}"])
         
         data = request.get_json()
         app.logger.info(f"Request data: {data}")
@@ -143,7 +99,6 @@ def pwa_recommendations_endpoint():
 
         if not (country or city or region):
             app.logger.error("At least one of country, city, or region must be provided")
-            statsd.increment("recommendations_pwa.error", tags=["type:missing_parameters"])
             return jsonify({"error": "At least one of country, city, or region must be provided"}), 400
 
         # Build query dynamically
@@ -203,7 +158,6 @@ def pwa_recommendations_endpoint():
 
     except Exception as e:
         app.logger.error(f"Error in recommendations_pwa endpoint: {e}")
-        statsd.increment("recommendations_pwa.error", tags=["type:internal_error"])
         return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
