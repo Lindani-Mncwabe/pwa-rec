@@ -18,8 +18,8 @@ load_dotenv()
 
 # Datadog setup
 options = {
-    'api_key': os.environ['DATADOG_API_KEY'],
-    'app_key': os.environ['DATADOG_APP_KEY']
+    'api_key': os.getenv('DATADOG_API_KEY'),
+    'app_key': os.getenv('DATADOG_APP_KEY')
 }
 initialize(**options)
 
