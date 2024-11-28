@@ -29,7 +29,7 @@ app.logger.setLevel(logging.INFO)
 
 # Spanner setup
 spanner_instance_id = os.getenv('SPANNER_INSTANCE_ID')
-spanner_database_id = os.getenv('SPANNER_DATA_BASE_ID')
+spanner_database_id = os.getenv('SPANNER_DATABASE_ID')
 google_credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
 
 credentials = service_account.Credentials.from_service_account_file(google_credentials_path)
