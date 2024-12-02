@@ -104,16 +104,38 @@ def pwa_recommendations_endpoint():
         # Build query dynamically
         conditions = []
         query_params = {}
-
-        if country:
-            conditions.append("country = @country")
+        
+        # Handle all combinations of parameters
+        if country and not region and not city:
+            conditions.append("country = @country AND region IS NULL AND city IS NULL")
             query_params["country"] = spanner.param_types.STRING
-        if city:
+        elif region and not country and not city:
+            conditions.append("region = @region AND city IS NULL")
+            query_params["region"] = spanner.param_types.STRING
+        elif city and not country and not region:
             conditions.append("city = @city")
             query_params["city"] = spanner.param_types.STRING
-        if region:
-            conditions.append("region = @region")
+        elif country and region and not city:
+            conditions.append("country = @country AND region = @region AND city IS NULL")
+            query_params["country"] = spanner.param_types.STRING
             query_params["region"] = spanner.param_types.STRING
+        elif country and city and not region:
+            conditions.append("country = @country AND city = @city")
+            query_params["country"] = spanner.param_types.STRING
+            query_params["city"] = spanner.param_types.STRING
+        elif region and city and not country:
+            conditions.append("region = @region AND city = @city")
+            query_params["region"] = spanner.param_types.STRING
+            query_params["city"] = spanner.param_types.STRING
+        elif country and region and city:
+            conditions.append("country = @country AND region = @region AND city = @city")
+            query_params["country"] = spanner.param_types.STRING
+            query_params["region"] = spanner.param_types.STRING
+            query_params["city"] = spanner.param_types.STRING
+        else:
+            app.logger.error("Invalid combination of parameters")
+            statsd.increment("recommendations_pwa.error", tags=["type:invalid_parameters"])
+            return jsonify({"error": "Invalid combination of parameters"}), 400
 
         where_clause = " AND ".join(conditions)
 
